@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE FAKE CHOICE</title>
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --text: #e0e0e0;
+            --accent: #ff0033;
+            --btn-bg: #1a1a1a;
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Courier New', Courier, monospace;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        #game-container {
+            text-align: center;
+            width: 90%;
+            max-width: 600px;
+        }
+
+        #level-indicator {
+            font-size: 0.8rem;
+            opacity: 0.4;
+            margin-bottom: 20px;
+        }
+
+        #instruction {
+            font-size: 1.5rem;
+            margin-bottom: 40px;
+            min-height: 2em;
+        }
+
+        .button-zone {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+            perspective: 500px;
+        }
+
+        .btn {
+            background: var(--btn-bg);
+            border: 1px solid var(--text);
+            color: var(--text);
+            padding: 15px 30px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: transform 0.1s, background 0.2s;
+            position: relative;
+        }
+
+        .btn:active { transform: scale(0.95); }
+
+        /* Glitch Effects */
+        .glitch { animation: shake 0.2s infinite; color: var(--accent); }
+        @keyframes shake {
+            0% { transform: translate(0,0); }
+            25% { transform: translate(2px, -2px); }
+            50% { transform: translate(-2px, 2px); }
+            100% { transform: translate(0,0); }
+        }
+
+        #message-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,0,0,0.1);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="level-indicator">STAGE: 0</div>
+    <div id="game-container">
+        <div id="instruction">ARE YOU READY?</div>
+        <div class="button-zone" id="btn-container">
+            <button class="btn" onclick="startGame()">START</button>
+        </div>
+    </div>
+    <div id="message-overlay">FAILED</div>
+
+    <script>
+        const container = document.getElementById('btn-container');
+        const instruction = document.getElementById('instruction');
+        const levelDisplay = document.getElementById('level-indicator');
+        const overlay = document.getElementById('message-overlay');
+
+        let currentLevel = 0;
+        let failCount = 0;
+        let levelTimer = null;
+        let isLevelActive = false;
+
+        // --- LEVEL GENERATOR ---
+        // Dynamically creates 100 levels with escalating deception
+        const levels = [];
+        for(let i = 0; i <= 100; i++) {
+            let config = {
+                text: "CHOOSE",
+                btns: ["LEFT", "RIGHT"],
+                winIdx: 0,
+                type: "click", // click, wait, sequence
+                chaos: false
+            };
+
+            if (i === 0) { config.text = "DON'T OVERTHINK"; config.btns = ["PROCEED"]; }
+            else if (i % 5 === 0) {
+                config.text = "DO NOT CLICK ANYTHING";
+                config.type = "wait";
+                config.waitTime = 3000;
+            } 
+            else if (i > 20 && i < 40) {
+                config.text = "TRUST THE RED";
+                config.btns = ["RED", "BLUE"];
+                config.winIdx = 1; // Lie: Blue is actually correct
+            }
+            else if (i > 40) {
+                config.chaos = true;
+                config.text = "STAY STILL";
+                config.btns = ["YES", "NO", "MAYBE"];
+                config.winIdx = Math.floor(Math.random() * 3);
+            }
+
+            if (i === 100) {
+                config.text = "THE END IS HERE. WAIT FOR IT.";
+                config.type = "wait";
+                config.waitTime = 10000;
+            }
+
+            levels.push(config);
+        }
+
+        function startGame() {
+            currentLevel = 1;
+            failCount = 0;
+            loadLevel();
+        }
+
+        function loadLevel() {
+            isLevelActive = true;
+            const lvl = levels[currentLevel];
+            levelDisplay.innerText = `STAGE: ${currentLevel}`;
+            instruction.innerText = lvl.text;
+            instruction.classList.remove('glitch');
+            container.innerHTML = '';
+
+            // Handle "Wait" levels
+            if (lvl.type === "wait") {
+                levelTimer = setTimeout(() => {
+                    if (isLevelActive) winLevel();
+                }, lvl.waitTime || 3000);
+            }
+
+            // Create Buttons
+            lvl.btns.forEach((label, index) => {
+                const b = document.createElement('button');
+                b.className = 'btn';
+                b.innerText = label;
+                
+                // Chaos Mechanic: Moving buttons
+                if (lvl.chaos) {
+                    b.onmouseover = () => {
+                        b.style.position = 'absolute';
+                        b.style.left = Math.random() * 80 + '%';
+                        b.style.top = Math.random() * 80 + '%';
+                    };
+                }
+
+                b.onclick = (e) => {
+                    if (lvl.type === "wait") {
+                        failLevel("YOU WERE IMPATIENT");
+                    } else {
+                        if (index === lvl.winIdx) winLevel();
+                        else failLevel();
+                    }
+                };
+                container.appendChild(b);
+            });
+
+            // Mocking logic
+            if (failCount > 3) {
+                instruction.innerText = "STILL STRUGGLING?";
+                instruction.classList.add('glitch');
+            }
+        }
+
+        function winLevel() {
+            isLevelActive = false;
+            clearTimeout(levelTimer);
+            if (currentLevel >= 100) {
+                instruction.innerText = "YOU WIN. OR DID YOU?";
+                container.innerHTML = "SYSTEM ERROR: EXIT NOT FOUND";
+                return;
+            }
+            currentLevel++;
+            loadLevel();
+        }
+
+        function failLevel(msg = "WRONG") {
+            isLevelActive = false;
+            clearTimeout(levelTimer);
+            failCount++;
+            overlay.style.display = 'flex';
+            overlay.innerText = msg;
+            
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                loadLevel();
+            }, 800);
+        }
+    </script>
+</body>
+</html>
